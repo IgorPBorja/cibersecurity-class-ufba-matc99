@@ -33,7 +33,7 @@ def execute_command():
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Command Execution API")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=5000, help="Port to bind to")
+    parser.add_argument("--port", type=int, default=443, help="Port to bind to")
     return parser.parse_args()
 
 
