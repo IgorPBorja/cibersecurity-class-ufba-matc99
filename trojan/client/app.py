@@ -1,5 +1,6 @@
 import os
 import socket
+import subprocess
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -115,10 +116,17 @@ def create_shell_app() -> Flask:
 
         command = data["command"]
         try:
-            exit_code = os.system(command)
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
             return jsonify({
                 "command": command,
-                "exit_code": exit_code,
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
                 "status": "executed",
             })
         except Exception as exc:
