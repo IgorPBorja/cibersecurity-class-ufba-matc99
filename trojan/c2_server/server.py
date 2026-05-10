@@ -10,7 +10,7 @@ app = Flask(__name__)
 BASE_DIR = Path("uploads")
 
 
-@app.route("/v1/upload", methods=["POST"])
+@app.route("/upload", methods=["POST"])
 def upload_file():
     BASE_DIR.mkdir(parents=True, exist_ok=True)
 
